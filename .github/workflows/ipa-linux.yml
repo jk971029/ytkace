@@ -34,6 +34,10 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq zip unzip dpkg file
+          sudo curl -fsSL -o /usr/local/bin/ldid \
+            https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64
+          sudo chmod +x /usr/local/bin/ldid
+          ldid 2>&1 | head -1 || true
 
       - name: YouTube
         env:
@@ -58,7 +62,7 @@ jobs:
           PY
           )"
           output="YTKACE_${tweak_version}-flip_YouTube_${youtube_version}.ipa"
-          bash -x Scripts/sideload-repack.sh YouTube.ipa \
+          bash Scripts/sideload-repack.sh YouTube.ipa \
             deb-root/var/jb/Library/MobileSubstrate/DynamicLibraries/YTKACE.dylib "$output"
           bash Tools/verify-artifacts.sh \
             deb-root/var/jb/Library/MobileSubstrate/DynamicLibraries/YTKACE.dylib "$output"
