@@ -1,0 +1,69 @@
+name: IPA (Linux)
+
+# Builds the iOS 17+ IPA on Ubuntu (no macOS queue, no Safari extension)
+# and publishes it as a GitHub release so it can be downloaded on the phone.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: YouTube IPA URL (iOS 17+ base)
+        required: true
+        default: "https://www.dropbox.com/scl/fi/hjbvmjk9xz9krzxrch0if/com.google.ios.youtube-21.46.3-eeveedecrypter.ipa?rlkey=z9di35l0ppjcxf97vwvn2wmvc&st=oeeopdfy&dl=1"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-deb.yml
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: YTKACE-deb-rootless
+          path: packages
+
+      - name: YouTube
+        env:
+          IPA_URL: ${{ inputs.ipa_url }}
+        run: |
+          curl --fail --location "$IPA_URL" --output YouTube.ipa
+          unzip -l YouTube.ipa | grep -q 'Payload/.*\.app/Info.plist'
+
+      - name: Inject
+        id: inject
+        run: |
+          mkdir deb-root
+          dpkg-deb -x packages/*.deb deb-root
+          tweak_version="$(awk '/^Version:/ {print $2}' control)"
+          youtube_version="$(python3 - <<'PY'
+          import plistlib, zipfile
+          with zipfile.ZipFile('YouTube.ipa') as archive:
+              info = next(name for name in archive.namelist()
+                          if name.startswith('Payload/') and name.endswith('.app/Info.plist'))
+              print(plistlib.loads(archive.read(info))['CFBundleShortVersionString'])
+          PY
+          )"
+          output="YTKACE_${tweak_version}-flip_YouTube_${youtube_version}.ipa"
+          bash Scripts/sideload-repack.sh YouTube.ipa \
+            deb-root/var/jb/Library/MobileSubstrate/DynamicLibraries/YTKACE.dylib "$output"
+          bash Tools/verify-artifacts.sh \
+            deb-root/var/jb/Library/MobileSubstrate/DynamicLibraries/YTKACE.dylib "$output"
+          echo "ipa=$output" >> "$GITHUB_OUTPUT"
+          echo "tag=v${tweak_version}-flip-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.inject.outputs.tag }}" "${{ steps.inject.outputs.ipa }}" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "YTKACE ${{ steps.inject.outputs.tag }}" \
+            --notes "YTKACE with the flip landscape button (iOS 17+)."
