@@ -2,12 +2,14 @@
 #import "../../Runtime/Hooking.h"
 #import "../../Runtime/Preferences.h"
 #import "../Downloads/DownloadLog.h"
+#import "../../UI/OverlayButtonHost.h"
 
 #import <UIKit/UIKit.h>
 #import <objc/message.h>
 
 static NSString *const YTKACEAutoFullscreenKey = @"YTKACE.Preference.Player.AutoFullscreen";
 static NSString *const YTKACEExitFullscreenKey = @"YTKACE.Preference.Player.ExitFullscreenAtEnd";
+static NSString *const YTKACEFlipLandscapeKey = @"YTKACE.Preference.Player.FlipLandscape";
 
 static NSString *YTKACEFullscreenEnteredVideo;
 static NSString *YTKACEFullscreenExitedVideo;
@@ -114,7 +116,102 @@ static BOOL YTKACELoopOn(void) {
 
 @end
 
+
+// Flip landscape: with rotation lock on, fullscreen sometimes lands on the
+// wrong landscape side. This button turns the video to the other side.
+
+static UIInterfaceOrientation YTKACESceneOrientation(UIView *view) {
+    UIWindowScene *scene = view.window.windowScene;
+    return scene != nil ? scene.interfaceOrientation : UIInterfaceOrientationUnknown;
+}
+
+// The controls overlay's view controller says whether it is fullscreen;
+// without one, a landscape window is taken as fullscreen.
+static BOOL YTKACEOverlayViewIsFullscreen(UIView *view) {
+    Class main = NSClassFromString(@"YTMainAppVideoPlayerOverlayViewController");
+    UIResponder *responder = view;
+    while (responder != nil) {
+        if (main != Nil && [responder isKindOfClass:main]) return YTKACEPlayerIsFullscreen(responder);
+        responder = responder.nextResponder;
+    }
+    return YES;
+}
+
+static BOOL YTKACEFlipButtonWanted(UIView *overlay) {
+    if (!YTKACEFeatureEnabled(YTKACEFlipLandscapeKey)) return NO;
+    if (!UIInterfaceOrientationIsLandscape(YTKACESceneOrientation(overlay))) return NO;
+    return YTKACEOverlayViewIsFullscreen(overlay);
+}
+
+static void YTKACEUpdateSupportedOrientations(UIViewController *controller) {
+    if (@available(iOS 16.0, *)) {
+        while (controller != nil) {
+            [controller setNeedsUpdateOfSupportedInterfaceOrientations];
+            controller = controller.presentedViewController;
+        }
+    }
+}
+
+@interface YTKACEFlipLandscapeTarget : NSObject
+@property(nonatomic, weak) UIView *overlay;
++ (instancetype)sharedTarget;
+- (void)flip;
+@end
+
+@implementation YTKACEFlipLandscapeTarget
+
++ (instancetype)sharedTarget {
+    static YTKACEFlipLandscapeTarget *target;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ target = [YTKACEFlipLandscapeTarget new]; });
+    return target;
+}
+
+- (void)flip {
+    UIView *overlay = self.overlay;
+    UIWindow *window = overlay.window;
+    const UIInterfaceOrientation current = YTKACESceneOrientation(overlay);
+    if (window == nil || !UIInterfaceOrientationIsLandscape(current)) return;
+    const UIInterfaceOrientation target = current == UIInterfaceOrientationLandscapeLeft
+        ? UIInterfaceOrientationLandscapeRight : UIInterfaceOrientationLandscapeLeft;
+    YTKACEDebugLog(@"fullscreen", @"flip landscape %ld -> %ld", (long)current, (long)target);
+    if (@available(iOS 16.0, *)) {
+        const UIInterfaceOrientationMask mask = target == UIInterfaceOrientationLandscapeLeft
+            ? UIInterfaceOrientationMaskLandscapeLeft : UIInterfaceOrientationMaskLandscapeRight;
+        YTKACEUpdateSupportedOrientations(window.rootViewController);
+        UIWindowSceneGeometryPreferencesIOS *preferences =
+            [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:mask];
+        [window.windowScene requestGeometryUpdateWithPreferences:preferences
+                                                    errorHandler:^(NSError *error) {
+            YTKACEDebugLog(@"fullscreen", @"flip landscape failed %@", error.localizedDescription);
+        }];
+    } else {
+        // UIDeviceOrientationLandscapeLeft/Right are the interface values swapped,
+        // which is the same number as the interface orientation we want.
+        [UIDevice.currentDevice setValue:@(target) forKey:@"orientation"];
+        [UIViewController attemptRotationToDeviceOrientation];
+    }
+}
+
+@end
+
+static void YTKACERegisterFlipLandscapeButton(void) {
+    YTKACERegisterOverlayConfigurator(@"fliplandscape", ^(UIView *overlay, UIStackView *stack) {
+        YTKACEFlipLandscapeTarget *target = YTKACEFlipLandscapeTarget.sharedTarget;
+        UIImage *probe = nil;
+        if (@available(iOS 16.0, *)) probe = [UIImage systemImageNamed:@"rectangle.landscape.rotate"];
+        UIButton *button = YTKACEOverlayButton(stack, @"YTKACE Flip Landscape",
+                                               probe != nil ? @"rectangle.landscape.rotate" : @"arrow.triangle.2.circlepath",
+                                               target, @selector(flip));
+        button.accessibilityLabel = @"Flip Landscape";
+        const BOOL wanted = YTKACEFlipButtonWanted(overlay);
+        if (wanted) target.overlay = overlay;
+        button.hidden = !wanted;
+    });
+}
+
 void YTKACEInstallFullscreenHooks(void) {
+    YTKACERegisterFlipLandscapeButton();
     static YTKACEFullscreenObserver *observer;
     observer = [YTKACEFullscreenObserver new];
     [NSNotificationCenter.defaultCenter addObserver:observer

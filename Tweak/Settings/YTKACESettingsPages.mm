@@ -1722,6 +1722,7 @@ static NSDictionary *YTKACEPlayerDefinition(void) {
             YTKACEToggleDetail(@"PiP Button", @"Add a button that opens the video in picture in picture.", YTKACEPiPKey),
             YTKACEToggleDetail(@"iPhone Duo Laptop Layout", @"Half open like a laptop, full-screen video plays above the crease with the controls below.", @"YTKACE.Preference.Player.DuoDeskSplit"),
             YTKACEToggleDetail(@"iPhone Duo Status Bar Over Video", @"Hide the clock and status icons while the watch page's video is under them.", @"YTKACE.Preference.Player.DuoStatusBarHidden"),
+            YTKACEToggleDetail(@"Flip Landscape Button", @"In full screen, add a button next to the exit full screen button that turns the video to the other landscape side.", @"YTKACE.Preference.Player.FlipLandscape"),
             YTKACEToggle(@"Loop Button", YTKACELoopKey, @"", @""),
             YTKACEToggleDetail(@"Quality Button", @"Add a button that opens the quality menu.", @"YTKACE.Preference.Player.QualityButton"),
             YTKACEPicker(@"Quality Button Style", @"YTKACE.Preference.Player.QualityButtonStyle",

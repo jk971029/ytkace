@@ -1186,3 +1186,7 @@ Licensed under CC BY-NC-SA 4.0.";
 "To queue videos without Premium, turn on Local Queue in YTKACE settings." = "To queue videos without Premium, turn on Local Queue in YTKACE settings.";
 "Check your connection and try again." = "Check your connection and try again.";
 "Try %@ > %@ in YTKACE settings." = "Try %@ > %@ in YTKACE settings.";
+
+"Flip Landscape Button" = "Flip Landscape Button";
+"In full screen, add a button next to the exit full screen button that turns the video to the other landscape side." = "In full screen, add a button next to the exit full screen button that turns the video to the other landscape side.";
+"Flip Landscape" = "Flip Landscape";

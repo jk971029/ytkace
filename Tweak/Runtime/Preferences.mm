@@ -65,6 +65,7 @@ void YTKACERegisterDefaults(void) {
         YTKACESpeedKey: @NO,
         YTKACELoopKey: @NO,
         @"YTKACE.Preference.Player.QualityButton": @NO,
+        @"YTKACE.Preference.Player.FlipLandscape": @YES,
         @"YTKACE.Preference.Player.QualityButtonStyle": @0,
         @"YTKACE.Preference.Playback.YouThereDisabled": @NO,
         @"YTKACE.Preference.Playback.BlockHeartbeat": @NO,

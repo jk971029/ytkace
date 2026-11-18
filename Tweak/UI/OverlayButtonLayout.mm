@@ -22,7 +22,9 @@ NSArray<NSDictionary *> *YTKACEOverlayButtonCatalog(void) {
         @{@"id": @"pip", @"title": @"Picture in Picture", @"symbol": @"pip", @"key": YTKACEPiPKey},
         @{@"id": @"transcript", @"title": @"Transcript", @"symbol": @"doc.plaintext",
           @"key": @"YTKACE.Preference.Playback.Transcript"},
-        @{@"id": @"downloads", @"title": @"Download", @"symbol": @"arrow.down.circle"}
+        @{@"id": @"downloads", @"title": @"Download", @"symbol": @"arrow.down.circle"},
+        @{@"id": @"fliplandscape", @"title": @"Flip Landscape", @"symbol": @"arrow.triangle.2.circlepath",
+          @"key": @"YTKACE.Preference.Player.FlipLandscape"}
     ];
 }
 
@@ -56,7 +58,10 @@ static NSDictionary<NSString *, NSArray<NSString *> *> *YTKACEOverlayLayout(void
         layout[zone] = ids;
     }
     for (NSDictionary *button in YTKACEOverlayButtonCatalog()) {
-        if (![placed containsObject:button[@"id"]]) [layout[YTKACEOverlayZoneBelow] addObject:button[@"id"]];
+        if ([placed containsObject:button[@"id"]]) continue;
+        // the flip button belongs beside the exit fullscreen button
+        NSString *zone = [button[@"id"] isEqualToString:@"fliplandscape"] ? YTKACEOverlayZoneBottom : YTKACEOverlayZoneBelow;
+        [layout[zone] addObject:button[@"id"]];
     }
     cachedStored = [stored copy];
     cachedLayout = [layout copy];
